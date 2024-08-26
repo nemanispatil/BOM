@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BOM Analysis</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .logo {
+        display: block;
+        margin: 0 auto;
+        width: 150px;
+        height: auto;
+      }
+
+      h2 {
+        text-align: center;
+        margin-top: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+
+      table,
+      th,
+      td {
+        border: 1px solid #ddd;
+      }
+
+      th,
+      td {
+        padding: 8px;
+        text-align: left;
+      }
+
+      th {
+        background-color: #f2f2f2;
+      }
+
+      #results {
+        margin-top: 20px;
+      }
+
+      #upload-section {
+        margin-bottom: 20px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 10px 20px;
+        margin-top: 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .btn:hover {
+        background-color: #45a049;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 40px;
+        font-size: 0.9em;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img
+        src="https://scontent.fblr20-3.fna.fbcdn.net/v/t39.30808-6/300772555_437319795081558_1101616133067574308_n.jpg?_nc_cat=100&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=INbbw5m76GgQ7kNvgGd_j0h&_nc_ht=scontent.fblr20-3.fna&oh=00_AYAR4cQpRu0Fiy1pGKOI_FARh2ssOgAU2HAQHErueSHTQQ&oe=66D2773A"
+        alt="Company Logo"
+        class="logo"
+      />
+      <h1>BOM Analysis</h1>
+    </header>
+
+    <div id="upload-section">
+      <input type="file" id="fileInput" />
+    </div>
+
+    <table id="data-table">
+      <thead>
+        <tr>
+          <th>Item No</th>
+          <th>Part Number</th>
+          <th>Description</th>
+          <th>Thickness (mm)</th>
+          <th>Height (mm)</th>
+          <th>Width (mm)</th>
+          <th>Length (mm)</th>
+          <th>Material</th>
+          <th>Quantity</th>
+          <th>Weight (kg)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data rows will be inserted here by JavaScript -->
+      </tbody>
+    </table>
+
+    <h2>Analysis Results</h2>
+    <div id="results"></div>
+
+    <button class="btn" id="downloadButton">Download Analysis as Excel</button>
+
+    <footer>
+      <p>Software by NEMANI SURESH PATIL</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+      const fileInput = document.getElementById("fileInput");
+      const dataTableBody = document.querySelector("#data-table tbody");
+      const resultsDiv = document.getElementById("results");
+      const downloadButton = document.getElementById("downloadButton");
+
+      let analyzedData = {}; // To store the analysis results
+
+      fileInput.addEventListener("change", handleFile, false);
+      downloadButton.addEventListener("click", downloadExcel, false);
+
+      function handleFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const data = e.target.result;
+          const workbook = XLSX.read(data, { type: "binary" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet);
+
+          processData(json);
+        };
+        reader.readAsBinaryString(file);
+      }
+
+      function processData(data) {
+        // Clear previous data
+        dataTableBody.innerHTML = "";
+        resultsDiv.innerHTML = "";
+
+        // Populate the table with data
+        data.forEach((item) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td>${item["Item No"]}</td>
+                    <td>${item["Part Number"]}</td>
+                    <td>${item["Description"]}</td>
+                    <td>${item["Thickness (mm)"]}</td>
+                    <td>${item["Height (mm)"]}</td>
+                    <td>${item["Width (mm)"]}</td>
+                    <td>${item["Length (mm)"]}</td>
+                    <td>${item["Material"]}</td>
+                    <td>${item["Quantity"]}</td>
+                    <td>${item["Weight (kg)"]}</td>
+                `;
+          dataTableBody.appendChild(row);
+        });
+
+        // Analyze the data
+        analyzedData = analyzeData(data);
+        displayResults(analyzedData);
+      }
+
+      function analyzeData(data) {
+        const results = {};
+
+        // Process the data to aggregate by height, width, and thickness
+        data.forEach((item) => {
+          const key = `${item["Height (mm)"]}-${item["Width (mm)"]}-${item["Thickness (mm)"]}`;
+
+          if (!results[key]) {
+            results[key] = { totalLength: 0, parts: [] };
+          }
+
+          results[key].totalLength += item["Length (mm)"];
+          results[key].parts.push(item);
+        });
+
+        return results;
+      }
+
+      function displayResults(results) {
+        resultsDiv.innerHTML = "";
+
+        for (const [key, value] of Object.entries(results)) {
+          const [height, width, thickness] = key.split("-");
+          const totalLength = value.totalLength;
+          const lengthDividedBy6000 = (totalLength / 6000).toFixed(2);
+
+          resultsDiv.innerHTML += `<h3>Height: ${height} mm, Width: ${width} mm, Thickness: ${thickness} mm</h3>`;
+          resultsDiv.innerHTML += `<p>Total Length: ${totalLength} mm</p>`;
+          resultsDiv.innerHTML += `<p>Total Length divided by 6000 mm: ${lengthDividedBy6000}</p>`;
+          resultsDiv.innerHTML += `<ul>`;
+
+          value.parts.forEach((part) => {
+            resultsDiv.innerHTML += `<li>Item No: ${part["Item No"]}, Length: ${part["Length (mm)"]} mm, Material: ${part["Material"]}</li>`;
+          });
+
+          resultsDiv.innerHTML += `</ul>`;
+        }
+      }
+
+      function downloadExcel() {
+        const wb = XLSX.utils.book_new();
+        const wsData = [];
+
+        // Add headers
+        wsData.push([
+          "Height (mm)",
+          "Width (mm)",
+          "Thickness (mm)",
+          "Total Length (mm)",
+          "Length / 6000 mm",
+        ]);
+
+        for (const [key, value] of Object.entries(analyzedData)) {
+          const [height, width, thickness] = key.split("-");
+          const totalLength = value.totalLength;
+          const lengthDividedBy6000 = (totalLength / 6000).toFixed(2);
+
+          wsData.push([
+            height,
+            width,
+            thickness,
+            totalLength,
+            lengthDividedBy6000,
+          ]);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        XLSX.utils.book_append_sheet(wb, ws, "Analysis Results");
+        XLSX.writeFile(wb, "AnalysisResults.xlsx");
+      }
+    </script>
+  </body>
+</html>
